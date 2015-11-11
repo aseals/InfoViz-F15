@@ -1,0 +1,159 @@
+<html>
+<head>
+    <title>Country GDP vs Ease of business</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js" charset="utf-8"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <style>
+        body {
+            margin:0;
+            padding:0;
+        }
+        .header {
+            background: #6496c8;
+            color: white;
+            font-size: 24px;
+            padding-top: 30px;
+            padding-bottom: 30px;
+            margin:0px;
+        }
+        button {
+          display: inline-block;
+          margin: 0 10px 0 0;
+          font-size: 12px;
+          appearance: none;
+          box-shadow: none;
+          border-radius: 0;
+          color: #6496c8;
+          background: rgba(0,0,0,0);
+          border: solid 2px #6496c8;
+          padding-bottom: 1px;
+        }
+
+        circle {
+            fill: #6496c8;
+            opacity: 0.5;
+        }
+
+        .domain {
+            fill: none;
+            stroke: #000;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container-fluid header" style="padding-left: 30px;"> Country GDP vs Ease of Business </div>
+
+    <div class="container-fluid" style="padding-left: 30px;">
+
+        <div style="padding-top: 30px; padding-bottom: 15px;" class="searchbox">
+            <input id="searchInput" type="text" placeholder=" Insert Country Name..." style="font-size: 12px; width: 186px;" />
+            <button onclick="search()" id="searchBtn">Search</button>
+            <p id="gdp"></p>
+            <span class="strong" style="font-weight:bold; color: #6496c8;" id="result"></span>
+        </div>
+
+        <div class="row">
+            <ul id="list" style="list-style-type:none;" class="col-md-4"></ul>
+            <svg id="viz" class="col-md-6" style="padding-left: 35px; width:650;"></svg>
+        </div>
+
+    </div>
+
+    <script>
+
+        var countries = []
+
+        d3.csv("data.csv", function(result){
+        dataloaded(result);
+        })
+
+        function dataloaded(result){
+            var data = result.map(function(d){
+                return {
+                    name: d.Country,
+                    GDP: +d['GDP per Capita'].replace("$", "").replace(",", ""),
+                    Ease: +d['Ease of Business'],
+                    Year: new Date(d.Year).getYear() + 1900
+                }
+            })
+            data = data.filter(function(d) {
+                return d.Year == 2012;
+            })
+
+            data.sort(function(a,b){
+                return d3.ascending(a.name, b.name);
+            });
+            countries = data;
+
+            function showList(countries) {
+
+                var selection = d3.select("#list")
+                    .selectAll("li")
+                    .data(countries, function(d) { return d.name; });
+
+                selection.enter()
+                    .append("li")
+                    .text(function(d) { return d.name });
+            }
+
+            showList(countries);
+
+            function showViz(data) {
+                d3.select("#viz").attr("width", 600);
+                d3.select("#viz").attr("height", 425);
+
+                var scaleX = d3.scale.linear();
+                var scaleY = d3.scale.linear();
+
+                scaleX.range([10, 590])
+                scaleY.range([10, 390])
+
+                scaleX.domain([0, d3.max(data, function(d) { return d.GDP; })])
+                scaleY.domain([ d3.max(data, function(d) { return d.Ease; }),0])
+
+                var axisX = d3.svg.axis().scale(scaleX).orient("bottom");
+                var axisY = d3.svg.axis().scale(scaleY).orient("left");
+
+                var selection = d3.select("#viz")
+                    .selectAll("circle")
+                    .data(data, function(d) { return d.name; });
+
+
+                selection.enter()
+                    .append("circle")
+                    .attr({
+                        r: 5,
+                        cx: function(d) { return scaleX(d.GDP) },
+                        cy: function(d) { return scaleY(d.Ease) },
+                    });
+
+                d3.select("#viz").append("g")
+                    .attr("transform", "translate(0,390)")
+                    .call(axisX);
+                d3.select("#viz").append("g")
+                    .attr("transform", "translate(10,0)")
+                    .call(axisY);
+            }
+
+            showViz(countries);
+            }
+
+        function search() {
+            var value = d3.select("#searchInput").node().value;
+
+            var result = countries.filter(function(d) {
+                return d.name === value;
+            })
+
+            if(result.length === 0) {
+                alert("No Country found for: " + value)
+            } else {
+                d3.select("#result").html(value + "'s GDP: $" + result[0].GDP);
+            }
+        }
+
+
+    </script>
+</body>
+</html>

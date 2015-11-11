@@ -1,0 +1,110 @@
+<html>
+<head>
+	<title>Country GDP vs Ease of business</title>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js" charset="utf-8"></script>
+	<style>
+		body { 
+			margin:0; 
+			padding:0; 
+		}
+
+		.header {
+			background: #6496c8;
+			color: white;
+			font-size: 24px;
+			font-family: "Bitter",serif;
+			padding: 30px;
+			margin:0px;
+		}
+
+		.searchBox {
+			padding-top: 30px;
+			padding-left: 30px;
+			font: Arial;
+			font-size: 18px;
+
+		}
+
+		button {
+		  display: inline-block;
+		  margin: 0 10px 0 0;
+		  font-size: 12px;
+		  font-family: "Bitter",serif;
+		  appearance: none;
+		  box-shadow: none;
+		  border-radius: 0;
+		  color: #6496c8;
+		  background: rgba(0,0,0,0);
+		  border: solid 2px #6496c8;
+		}
+	</style>
+</head>
+<body>
+
+	<div class='header'>
+		Country GDP vs Ease of Business
+	</div>
+
+	<div class="form searchbox">
+	    <form method="get" action="input">
+	        <input id="searchInput" name="textfield" type="text" class="colortext" placeholder=" Search countries..." />
+	    </form>
+	    <div>
+	    	<button id="searchBtn">Search</button>
+			<p id="gdp"></p>
+	    </div>
+
+	</div>
+
+	<script>
+		
+	var data;
+	//data
+	d3.csv("data.csv", function(result){
+			dataloaded(result);
+		})
+
+		function dataloaded(result){
+			data = result.map(function(d){
+				return {
+					name: d.Country,
+					GDP: +d['GDP per Capita']. replace("$", "").replace(",", ""),
+					year: new Date(d.Year).getYear() + 1900
+				}
+			})
+
+
+			data = data.sort(function(a,b){
+				return d3.ascending(a.name, b.name);
+			})
+			
+			data = d3.map(data, function(d){return d.name.toLowerCase();});
+
+
+		}
+
+
+
+	//search & return
+
+	function postGDP(value) {
+    	document.getElementById("gdp").innerHTML = "GDP: $" + value.GDP;
+	}
+
+	document.getElementById("searchBtn").addEventListener('click', function() {
+    	var result = data.get(document.getElementById("searchInput").value.toLowerCase());
+    	if (result){
+    		postGDP(result);
+    	} else{
+    		alert('not found');
+    	}
+
+    })
+
+
+    
+
+
+	</script>
+</body>
+</html>

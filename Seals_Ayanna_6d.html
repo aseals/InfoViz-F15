@@ -1,0 +1,293 @@
+<html>
+  <head>
+      <title>Country GDP vs Ease of business</title>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js" charset="utf-8"></script>
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+      <style>
+          body {
+              margin:0;
+              padding:0;
+          }
+          .header {
+              background: #6496c8;
+              color: white;
+              font-size: 24px;
+              padding-top: 30px;
+              padding-bottom: 30px;
+              margin:0px;
+          }
+          button {
+            display: inline-block;
+            margin: 0 10px 0 0;
+            font-size: 12px;
+            appearance: none;
+            box-shadow: none;
+            border-radius: 0;
+            color: #6496c8;
+            background: rgba(0,0,0,0);
+            border: solid 2px #6496c8;
+            padding-bottom: 1px;
+          }
+          circle {
+              fill: #6496c8;
+              opacity: 0.5;
+          }
+          .domain {
+              fill: none;
+              stroke: #000;
+          }
+          #tooltip {
+            background-color: white;
+            border: solid 1px #000;
+            width: 140px;
+            display: none;
+            position: fixed;
+            padding: 5px;
+          }
+          #CountryName {
+            font-weight: bold;
+            display: block;
+          }
+      </style>
+  </head>
+  <body>
+      <div class="container-fluid header" style="padding-left: 30px;"> Country GDP vs Ease of Business </div>
+      <div class="container-fluid" style="padding-left: 30px;">
+          <div style="padding-top: 30px; padding-bottom: 15px;" class="searchbox">
+              <!-- <input id="searchInput" type="text" placeholder=" Insert Country Name..." style="font-size: 12px; width: 186px;" /> -->
+              <input id="searchInput" placeholder=" Insert Country Name..." style="font-size: 12px; width: 186px;" onkeyup="Controler.filter(this.value)" />
+              <button onclick="search()" id="searchBtn">Search</button>
+              <p id="gdp"></p>
+              <span class="strong" style="font-weight:bold; color: #6496c8;" id="result"></span>
+          </div>
+          <div class="row">
+            <div class="col-md-3">
+              <ul id="list" style="list-style-type:none;"></ul>
+            </div>
+            <div class="col-md-6">
+              <div id="info"></div>
+              <div id="tooltip">
+                <span>Country: </span><span id="CountryName">US</span>
+                <span>GDP: </span><span id="CountryGDP">5654</span><br>
+                <span>Ease: </span><span id="CountryEase">154</span>
+              </div>
+              <svg id="viz" style="padding-left: 35px; width:650;"></svg>
+            </div>
+          </div>
+      </div>
+  </body>
+
+  <script>
+
+    var data = []
+
+    d3.csv("data.csv", function(d){
+      return {
+          name: d.Country,
+          GDP: +d['GDP per Capita'].replace("$", "").replace(",", ""),
+          Ease: +d['Ease of Business'],
+          Year: new Date(d.Year).getYear() + 1900
+      }
+    //data = dataloaded(result);
+  },function(errors,rows){
+    data = rows;
+    console.log(errors);
+    dataloaded();
+    launch();
+  })
+
+
+
+    function dataloaded(){
+
+        data = data.filter(function(d) {
+            return d.Year == 2012;
+        })
+        data.sort(function(a,b){
+            return d3.ascending(a.name, b.name);
+        });
+
+        // showList(data);
+        // showViz(data);
+    }
+
+    var Dispatcher = {
+        add: function(view) {
+            if(!this.subscribers) {
+                this.subscribers = [];
+            }
+            this.subscribers.push(view);
+        },
+        notify: function(type, payload) {
+            this.subscribers.forEach(function(s) {
+                s[type](payload);
+            });
+        }
+    }
+
+    var Controller = {
+      loadData: function(result) {
+          this.data = data;
+          Dispatcher.notify('dataUpdated', this.data);
+      },
+      remove: function(d) {
+          this.data.splice(this.indexByKey(d.name), 1);
+          Dispatcher.notify('dataUpdated', this.data);
+      },
+      indexByKey: function(key) {
+          for(var i = 0; i< this.data.length; i++){
+              if(this.data[i].name == key) {
+                  return i;
+              }
+          }
+          return -1;
+      },
+      filter: function(value) {
+          var dt = this.data.filter(function(d) {
+              return d.name.toLowerCase().indexOf(value.toLowerCase()) > -1;
+          })
+          Dispatcher.notify('dataUpdated', dt);
+      }
+  }
+
+    function search() {
+        var value = d3.select("#searchInput").node().value;
+
+        var result = data.filter(function(d) {
+            return d.name === value;
+        })
+
+        if(result.length === 0) {
+            alert("No Country found for: " + value)
+        } else {
+            d3.select("#result").html(value + "'s GDP: $" + result[0].GDP);
+        }
+
+    }
+
+    var CountryList = {
+            init: function() {
+                this.list = d3.select("#list"); //Specify which HTML element will hold the list
+            },
+            getElement: function(d) { //Utility function do get the HTML element given a data point
+                return this.list.selectAll("li").filter(function(e) { return d.name == e.name });
+            },
+            dataUpdated: function(data) { //Update the data, runs every time the event 'dataUpdated' is fired.
+                var selection = this.list.selectAll("li").data(data, function(d) { return d.name; }); //Bind data to "li" elements using name as key
+                selection.enter().append("li").text(function(d) { return d.name; }) //Add a "li" element for each new data point
+                    .on('mouseover', function(d) {
+                        Dispatcher.notify('onHighlight', d); //Notify the views that a datapoint have been Highlighted
+                    }).on('mouseout', function(d) {
+                        Dispatcher.notify('onUnHighlight', d); //Notify the views that a datapoint have been Unhighlighted
+                    });
+
+                selection.exit().remove(); //Remove elements from the visualization that have been removed from data.
+            },
+            onHighlight: function(d) {
+                this.list.selectAll("li")
+                    .classed('highlighted', function(e) { return d.name == e.name }) //Add the class 'highlighted' to the highlighted element
+            },
+            onUnHighlight: function(d) {
+                this.list.selectAll("li")
+                    .classed('highlighted', false) //Remove the class 'highlighted' from all elements
+            }
+        }
+
+    var showViz = {
+      init: function(){
+        d3.select("#viz").attr("width", 600);
+        d3.select("#viz").attr("height", 425);
+
+        this.scaleX = d3.scale.linear();
+        this.scaleY = d3.scale.linear();
+
+        this.scaleX.range([10, 590])
+        this.scaleY.range([10, 390])
+
+        this.axisX = d3.svg.axis().scale(this.scaleX).orient("bottom");
+        this.axisY = d3.svg.axis().scale(this.scaleY).orient("left");
+
+        this.axisXGroup = d3.select("#viz").append("g")
+            .attr("transform", "translate(0,390)")
+        this.axisYGroup = d3.select("#viz").append("g")
+            .attr("transform", "translate(10,0)")
+
+      },
+      dataUpdated: function(data) {
+        var self = this;
+
+        this.scaleX.domain([0, d3.max(data, function(d) { return d.GDP; })])
+        this.scaleY.domain([ d3.max(data, function(d) { return d.Ease; }),0])
+
+        var selection = d3.select("#viz")
+            .selectAll("circle")
+            .data(data, function(d) { return d.name; });
+
+            selection.enter()
+                .append("circle")
+                .on('mouseover', function(d){
+                  Dispatcher.notify('onHighlight', d);
+                }).on('mouseout', function(){
+                  Dispatcher.notify('onUnHighlight', d);
+                }).on('click', function(d) {
+                  Dispatcher.notify('onSelect', d);
+                }).on('contextmenu', function(d,i){
+                    d3.event.preventDefault();
+                    d3.select("#tooltip").style({
+                      'display':'none'
+                    });
+                    Contoller.remove(d);
+                });
+            selection.exit().remove();
+
+            selection.transition().attr({
+              r: 5,
+              cx: function(d) { return self.scaleX(d.GDP) },
+              cy: function(d) { return this.scaleY(d.Ease) }.bind(this)
+            });
+
+            this.axisXGroup.transition().call(this.axisX);
+            this.axisYGroup.transition().call(this.axisY);
+      },
+      getItem: function(d) {
+        return d3.select("#viz").selectAll("circle").filter(function(e){
+          return d.name == e.name;
+        })
+      },
+      onHighlight: function(d){
+        this.getItem(d)
+        .attr("r", 10);
+
+        var tooltip = d3.select("#tooltip");
+          tooltip.select("#CountryName").text(d.name);
+          tooltip.select("#CountryGDP").text(d.GDP);
+          tooltip.select("#CountryEase").text(d.Ease);
+
+        tooltip.style({
+          'display': 'block',
+          'top': d3.event.y + 10,
+          'left': d3.event.x + 10,
+        })
+      },
+      onUnHighlight: function(d){
+        this.getItem(d)
+          .attr("r", 5);
+        d3.select("#tooltip").style({
+          'display':'none'
+        })
+      },
+      onSelect: function(d){
+        d3.select('#info').text(d.name + ' - GDP: ' + d.GDP + ' Ease: ' + d.Ease);
+      }
+    }
+
+    function launch(){
+      showViz.init();
+      CountryList.init();
+      Dispatcher.add(CountryList);
+      Dispatcher.add(showViz);
+      Controller.loadData(data);
+    }
+
+  </script>
+</html>
